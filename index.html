@@ -1,0 +1,246 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brain Brawl: The Haunted Mansion</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#100d1b;color:#f5f3ff;font-family:Arial,sans-serif}
+main{max-width:800px;margin:auto;padding:20px}
+header{text-align:center;padding:20px 0}
+h1{font-size:clamp(26px,6vw,40px)}
+h1 span{color:#fbbf24}
+.panel{background:#211a31;border:1px solid #51416b;border-radius:18px;padding:22px;margin:15px 0}
+.hidden{display:none}
+input{width:100%;padding:14px;margin:12px 0;background:#151020;color:white;border:1px solid #66527e;border-radius:10px}
+button{font:inherit;cursor:pointer}
+.primary{width:100%;padding:14px;background:#7c3aed;color:white;border:0;border-radius:10px;font-weight:bold}
+.muted{color:#c4b5d9;line-height:1.6}
+.rooms{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:18px 0}
+.room{background:#171224;border:1px solid #49365e;border-radius:10px;padding:12px;font-size:14px}
+.room b{display:block;color:#fbbf24;margin-bottom:5px}
+.top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.pill{background:#39284f;padding:8px 12px;border-radius:30px;font-size:13px}
+.progress{height:8px;background:#40334e;border-radius:10px;margin:18px 0;overflow:hidden}
+#bar{height:100%;width:0;background:#fbbf24;transition:width .3s}
+#timer{color:#fbbf24;font-weight:bold}
+.question{font-size:22px;line-height:1.5;margin:24px 0}
+.options{display:grid;gap:10px}
+.option{background:#171224;color:white;border:1px solid #54416b;border-radius:10px;padding:14px;text-align:left;line-height:1.5}
+.option:disabled{cursor:default;opacity:1}
+.option.correct{background:#123a31;border-color:#34d399}
+.option.wrong{background:#49202c;border-color:#fb7185}
+#feedback{line-height:1.6;margin:18px 0}
+.good{color:#34d399}.bad{color:#fb7185}
+#next{margin-top:10px}
+.result{background:#171224;border:1px solid #49365e;border-radius:10px;padding:14px;margin:10px 0}
+.score{font-size:54px;color:#fbbf24;font-weight:bold;text-align:center}
+footer{text-align:center;color:#9b8aad;padding:20px;font-size:12px}
+@media(max-width:480px){.rooms{grid-template-columns:1fr}.panel{padding:16px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<div style="font-size:42px">🏰 👻</div>
+<h1>Brain Brawl: <span>The Haunted Mansion</span></h1>
+<p class="muted">A mysterious WebGIS knowledge challenge</p>
+</header>
+
+<section id="welcome" class="panel">
+<h2>🗝️ Enter the Mansion</h2>
+<p class="muted">Answer 15 questions about cloud-native geospatial data. You have 30 seconds per question.</p>
+<label for="name">Participant name</label>
+<input id="name" maxlength="40" placeholder="Enter your name">
+<div class="rooms">
+<div class="room"><b>🚪 Wrought-Iron Gates</b>Questions 1–2 · Easy</div>
+<div class="room"><b>🕸️ Cobwebbed Foyer</b>Questions 3–5 · Easy</div>
+<div class="room"><b>📚 Whispering Library</b>Questions 6–8 · Medium</div>
+<div class="room"><b>🧪 Alchemist's Conservatory</b>Questions 9–10 · Medium</div>
+<div class="room"><b>⚙️ Clockwork Crypt</b>Questions 11–13 · Hard</div>
+<div class="room"><b>🔭 Phantom Observatory</b>Questions 14–15 · Hard</div>
+</div>
+<p class="muted">One point per correct answer. Maximum score: 15.</p>
+<button class="primary" onclick="start()">ENTER THE MANSION →</button>
+</section>
+
+<section id="game" class="panel hidden">
+<div class="top">
+<span class="pill" id="player"></span>
+<span class="pill" id="level"></span>
+<span class="pill">⏳ <span id="timer">30</span>s</span>
+</div>
+<div class="progress"><div id="bar"></div></div>
+<div class="top muted"><span id="count"></span><span id="scoreLabel">Score: 0</span></div>
+<h2 id="room"></h2>
+<div id="question" class="question"></div>
+<div id="options" class="options"></div>
+<div id="feedback" aria-live="polite"></div>
+<button id="next" class="primary" onclick="next()" disabled>Next Question →</button>
+</section>
+
+<section id="results" class="panel hidden">
+<div style="text-align:center;font-size:45px">🏆</div>
+<h2 id="resultTitle" style="text-align:center">Mansion Conquered!</h2>
+<p id="greeting" class="muted" style="text-align:center"></p>
+<div class="score" id="finalScore">0/15</div>
+<p id="percent" style="text-align:center"></p>
+<p id="message" class="muted" style="text-align:center"></p>
+<h2>📜 Answer Review</h2>
+<div id="review"></div>
+<button class="primary" onclick="again()">PLAY AGAIN ↻</button>
+<p class="muted">Your score is stored only in this game session. There is no shared leaderboard.</p>
+</section>
+<footer>🕯️ Brain Brawl · The Haunted Mansion · WebGIS Challenge</footer>
+</main>
+
+<script>
+const questions=[
+{q:"Overture has a global dataset of buildings, places, and roads. Which format is ideal for storing this vector data in cloud object storage such as Amazon S3 or Azure?",o:["Shapefile","GeoParquet","KML","GeoJSON"],a:1,w:"GeoParquet stores geospatial vector data in columnar Parquet format, suitable for cloud storage and analytics."},
+{q:"What does STAC stand for in the geospatial cloud ecosystem?",o:["Spatial Tile Access Core","Satellite Time-series Archive Catalogue","SpatioTemporal Asset Catalog","Standard Tiled Asset Container"],a:2,w:"STAC stands for SpatioTemporal Asset Catalog."},
+{q:"Which cloud-native raster format allows efficient access to selected portions of large satellite imagery without downloading the entire file?",o:["Cloud Optimized GeoTIFF (COG)","COPC","Zarr","FlatGeobuf"],a:0,w:"COG uses internal tiling and overviews to support efficient range requests."},
+{q:"Which expression is used to calculate the Normalized Difference Vegetation Index (NDVI)?",o:["(Red − NIR) / (Red + NIR)","NIR / Red","(NIR − Red) / (NIR + Red)","(NIR + Red) / (NIR − Red)"],a:2,w:"NDVI = (NIR − Red) / (NIR + Red)."},
+{q:"Which cloud-friendly format is designed for storing and accessing large LiDAR point clouds efficiently?",o:["COG","GeoParquet","Zarr","COPC"],a:3,w:"COPC means Cloud Optimized Point Cloud."},
+{q:"A browser needs features from a small area of Manhattan in a 12 GB FlatGeobuf file served from a plain web server. What makes this possible?",o:["A map server clips the file automatically","A spatial index at the start of the file enables efficient access","Columnar attributes alone","The file must first be registered in STAC"],a:1,w:"FlatGeobuf's spatial index enables efficient retrieval of features intersecting a requested area."},
+{q:"In STAC, which element represents an individual spatiotemporal scene or observation, including its geometry and time?",o:["Catalog","Collection","Item","Asset"],a:2,w:"A STAC Item describes an individual observation with geometry, time, and links to assets."},
+{q:"In a reproducible geospatial rendering workflow, what is a rendering contract?",o:["A data licensing agreement","A reproducible specification that turns raw spatial data into a map layer","A service-level agreement (SLA)","A set of pre-generated map tiles only"],a:1,w:"A rendering contract specifies repeatably how data is transformed and styled into a map layer."},
+{q:"According to the lecture slides, cloud-native data shifts sharing from a data-logistics problem toward what?",o:["A bandwidth problem","A storage-cost problem","A coordinate-projection problem","A metadata problem"],a:3,w:"The intended answer is metadata: standardized descriptions and discovery become important when data is accessed remotely."},
+{q:"Why should a large raster be clipped to an event geometry before computing statistics during a live emergency?",o:["It reduces computation and response time, making analysis more viable during live emergencies","It automatically converts the raster into a cloud-native format","It removes the need for STAC metadata","It increases the raster's spatial resolution"],a:0,w:"Clipping limits the analysis to the relevant area, reducing processing and response time."},
+{q:"Which set contains only the tile-behaviour controls specified for managing dense archives in the lecture?",o:["maxItemsPerTile, skipcovered, exitwhenfull, time_limit","minZoom, rescale, colormap, bands","maxItemsPerTile, rescale, version, skipcovered","time_limit, colormap, exitwhenfull, minZoom"],a:0,w:"The intended set is maxItemsPerTile, skipcovered, exitwhenfull, and time_limit. Exact support depends on the software implementation."},
+{q:"You change a rendering configuration's rescale range from 0–2500 to 0–1000 for the same elevation asset. What happens?",o:["The source elevation data changes permanently","Nothing changes in the rendered output","The value-to-colour mapping changes, the data remains untouched, and the configuration should be versioned","The geometry of the STAC Item is rewritten"],a:2,w:"Changing the rescale range changes the display mapping without modifying the source raster."},
+{q:"You need phone-sized bounding-box queries against a 12 GB vector file on a plain web server, plus warehouse-style column analytics. Which pairing is appropriate?",o:["GeoParquet for phone queries / FlatGeobuf for column analytics","FlatGeobuf for phone queries / GeoParquet for column analytics","COG for phone queries / Zarr for column analytics","COPC for phone queries / GeoParquet for column analytics"],a:1,w:"FlatGeobuf supports indexed spatial retrieval; GeoParquet is suitable for columnar analytics."},
+{q:"An organization must keep geospatial data inside its network and support air-gapped operation. What should guide the platform choice?",o:["The platform with the most features","The subscription price alone","Network-boundary and offline-operation constraints before feature count","Any cloud platform, provided an exit plan exists"],a:2,w:"Data residency, network boundaries, and air-gapped requirements must be considered first."},
+{q:"A team stores COG files in object storage but has no STAC catalog. What is the main limitation?",o:["COGs provide efficient access, but users must download every complete file","Discoverability is missing: subsets can be read efficiently, but files may be difficult to find without their storage paths","The files cannot be rendered because COGs require a rendering contract to be readable","Only one client can access each file at a time"],a:1,w:"COG enables efficient raster access, while STAC helps users discover and understand available assets."}
+];
+
+const rooms=[
+["🚪 Wrought-Iron Gates",0,2],
+["🕸️ Cobwebbed Foyer",2,5],
+["📚 Whispering Library",5,8],
+["🧪 Alchemist's Conservatory",8,10],
+["⚙️ Clockwork Crypt",10,13],
+["🔭 Phantom Observatory",13,15]
+];
+
+let player="",i=0,score=0,time=30,interval=null,locked=false,answers=[];
+
+function start(){
+ player=document.getElementById("name").value.trim();
+ if(!player){alert("Please enter your name.");return;}
+ i=0;score=0;answers=[];
+ document.getElementById("welcome").classList.add("hidden");
+ document.getElementById("results").classList.add("hidden");
+ document.getElementById("game").classList.remove("hidden");
+ document.getElementById("player").textContent="👤 "+player;
+ showQuestion();
+}
+
+function showQuestion(){
+ clearInterval(interval);locked=false;time=30;
+ const q=questions[i];
+ const room=rooms.find(r=>i>=r[1]&&i<r[2]);
+ document.getElementById("level").textContent="Level: "+(i<5?"Easy":i<10?"Medium":"Hard");
+ document.getElementById("count").textContent=`Question ${i+1} of 15`;
+ document.getElementById("scoreLabel").textContent="Score: "+score;
+ document.getElementById("room").textContent=room[0];
+ document.getElementById("question").textContent=q.q;
+ document.getElementById("bar").style.width=(i/15*100)+"%";
+ document.getElementById("feedback").textContent="";
+ document.getElementById("timer").textContent=time;
+ document.getElementById("next").disabled=true;
+ document.getElementById("next").textContent=i===14?"View Results →":"Next Question →";
+ const box=document.getElementById("options");box.innerHTML="";
+ q.o.forEach((answer,n)=>{
+  const b=document.createElement("button");b.className="option";
+  b.textContent=String.fromCharCode(65+n)+". "+answer;
+  b.onclick=()=>choose(n);box.appendChild(b);
+ });
+ interval=setInterval(()=>{
+  time--;document.getElementById("timer").textContent=time;
+  if(time<=0){clearInterval(interval);timeoutAnswer();}
+ },1000);
+}
+
+function choose(n){
+ if(locked)return;
+ locked=true;clearInterval(interval);
+ const q=questions[i],correct=n===q.a;
+ if(correct)score++;
+ answers[i]={selected:n,correct};
+ [...document.querySelectorAll(".option")].forEach((b,j)=>{
+  b.disabled=true;
+  if(j===q.a)b.classList.add("correct");
+  if(j===n&&!correct)b.classList.add("wrong");
+ });
+ const f=document.getElementById("feedback");
+ f.innerHTML="";
+ const h=document.createElement("strong");
+ h.className=correct?"good":"bad";
+ h.textContent=correct?"✓ Correct! +1 point":"✗ Incorrect. +0 points";
+ f.appendChild(h);
+ const p=document.createElement("p");p.textContent=q.w;f.appendChild(p);
+ document.getElementById("scoreLabel").textContent="Score: "+score;
+ document.getElementById("next").disabled=false;
+}
+
+function timeoutAnswer(){
+ if(locked)return;
+ locked=true;answers[i]={selected:null,correct:false};
+ const q=questions[i];
+ [...document.querySelectorAll(".option")].forEach((b,j)=>{
+  b.disabled=true;if(j===q.a)b.classList.add("correct");
+ });
+ const f=document.getElementById("feedback");f.innerHTML="";
+ const h=document.createElement("strong");h.className="bad";h.textContent="⏰ Time's up!";
+ f.appendChild(h);
+ const p=document.createElement("p");p.textContent="Correct answer: "+q.o[q.a]+". "+q.w;f.appendChild(p);
+ document.getElementById("next").disabled=false;
+}
+
+function next(){
+ if(!locked)return;
+ if(i<14){i++;showQuestion();}else finish();
+}
+
+function finish(){
+ clearInterval(interval);
+ document.getElementById("game").classList.add("hidden");
+ document.getElementById("results").classList.remove("hidden");
+ const percent=Math.round(score/15*100);
+ document.getElementById("finalScore").textContent=score+"/15";
+ document.getElementById("percent").textContent=percent+"% correct";
+ document.getElementById("greeting").textContent=player+", you completed all six rooms!";
+ document.getElementById("resultTitle").textContent=score>=13?"👑 Legend of the Mansion!":score>=10?"🏆 Mansion Master!":score>=7?"🔮 Brave Explorer!":"🕯️ The Mystery Continues!";
+ document.getElementById("message").textContent=score>=13?"Outstanding WebGIS knowledge!":score>=10?"Great work conquering the mansion!":score>=7?"Good effort. Review the answers to improve.":"Keep learning and try again!";
+ const review=document.getElementById("review");review.innerHTML="";
+ questions.forEach((q,n)=>{
+  const card=document.createElement("div");card.className="result";
+  const question=document.createElement("b");question.textContent=(n+1)+". "+q.q;card.appendChild(question);
+  const correct=document.createElement("p");correct.className="good";correct.textContent="Correct answer: "+q.o[q.a];card.appendChild(correct);
+  const chosen=document.createElement("p");
+  chosen.className=answers[n].correct?"good":"bad";
+  chosen.textContent="Your answer: "+(answers[n].selected===null?"No answer (time expired)":q.o[answers[n].selected]);
+  card.appendChild(chosen);
+  const why=document.createElement("p");why.className="muted";why.textContent=q.w;card.appendChild(why);
+  review.appendChild(card);
+ });
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function again(){
+ clearInterval(interval);
+ document.getElementById("results").classList.add("hidden");
+ document.getElementById("welcome").classList.remove("hidden");
+ document.getElementById("name").value=player;
+ document.getElementById("bar").style.width="0%";
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+
+document.getElementById("name").addEventListener("keydown",e=>{
+ if(e.key==="Enter")start();
+});
+</script>
+</body>
+</html>
